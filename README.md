@@ -21,7 +21,7 @@
   }
 }
 
-
+-
 PS NOTE: The MCP server has the following features, and you can add as many as you want. :)
 
 - web_search
