@@ -2,7 +2,7 @@
 ------------------------------------
 
 
-+ First, install the necessary packages.
++ #First, install the necessary packages.
 - pip install -r requirements.txt
 
 + Then, start the server and check for any errors. If there are any errors or missing packages, check them.
