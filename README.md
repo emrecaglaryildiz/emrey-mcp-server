@@ -3,13 +3,13 @@
 
 
 + First, install the necessary packages.
-pip install -r requirements.txt
+- pip install -r requirements.txt
 
 + Then, start the server and check for any errors. If there are any errors or missing packages, check them.
-python mcp-server.py
+- python mcp-server.py
 
 + If no issues are observed, you can now define the necessary path settings for the mcp.json file from the LM Studio menu and start using it.
-
+-
 {
   "mcpServers": {
     "webtools": {
