@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "webtools": {
+      "command": "python.exe",
+      "args": [
+        "C:/mcp/server.py"
+      ]
+    }
+  }
+}
