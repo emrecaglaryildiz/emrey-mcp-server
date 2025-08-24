@@ -1,15 +1,15 @@
-*-*-*-*-* EMREY MCP SERVER *-*-*-*-*
+# *-*-*-*-* EMREY MCP SERVER *-*-*-*-*
 ------------------------------------
 
 
-# First, install the necessary packages.
+###   First, install the necessary packages.
 - pip install -r requirements.txt
 
-# Then, start the server and check for any errors. If there are any errors or missing packages, check them.
+###   Then, start the server and check for any errors. If there are any errors or missing packages, check them.
 - python mcp-server.py
 
-# If no issues are observed, you can now define the necessary path settings for the mcp.json file from the LM Studio menu and start using it.
-# 
+###   If no issues are observed, you can now define the necessary path settings for the mcp.json file from the LM Studio menu and start using it.
+###   
 {
   "mcpServers": {
     "webtools": {
@@ -21,9 +21,9 @@
   }
 }
 
-# 
+###   
 
-# PS NOTE: The MCP server has the following features, and you can add as many as you want. :)
+###   PS NOTE: The MCP server has the following features, and you can add as many as you want. :)
 
 - web_search
 - http_get
