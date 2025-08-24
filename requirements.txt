@@ -2,3 +2,10 @@ requests
 beautifulsoup4
 duckduckgo-search
 reportlab
+pytesseract
+opencv-python
+openai
+google.generativeai
+transformers
+docker
+kubernetes
