@@ -85,21 +85,116 @@ def _validate_domain(domain: str) -> bool:
     return any(domain.endswith(allowed) for allowed in allowed_domains)
 
 # --- Araçlar (Tools) --------------------------------------------------------
+# -*- coding: utf-8 -*-
+import json, os, logging
+from typing import List, Dict
+
+# ------------------------------------------------------------------
+# Logging / Özel yardımcılar
+# ------------------------------------------------------------------
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
+def _validate_url(url: str) -> bool:
+    """Basit URL doğrulaması (örnek)."""
+    from urllib.parse import urlparse
+    try:
+        result = urlparse(url)
+        return all([result.scheme, result.netloc])
+    except Exception:
+        return False
+
+def _validate_domain(domain: str) -> bool:
+    """İzin verilen domain kontrolü – buraya kendi whitelist’inizi koyabilirsiniz."""
+    allowed = {"example.com", "mcp.myapp.org"}   # Örnek
+    return domain.lower() in allowed
+
+def _clean_text(text: str) -> str:
+    """Boşlukları birleştirip fazla satır sonlarını temizler."""
+    return " ".join(text.split())
+
+# ------------------------------------------------------------------
+# Tavily API + DuckDuckGo Yedekleme ile Web Araması
+# ------------------------------------------------------------------
+TAVILY_API_KEY = <tavily_api_key>
+
 @mcp.tool()
-def web_search(query: str, max_results: int = 5, region: str = "tr-tr", safesearch: str = "moderate") -> List[Dict[str, str]]:
-    """Web araması yapar (API anahtarsız). Sonuç: title, url, snippet.
-    region: ddg bölge kodu (ör. "tr-tr"). safesearch: off|moderate|strict
+def web_search(
+    query: str,
+    max_results: int = 5,
+    region: str = "tr-tr",
+    safesearch: str = "moderate"
+) -> List[Dict[str, str]]:
+    """
+    Tavily API ile web araması yapar.  
+    Hata/boş sonuç olursa DuckDuckGo API’ye yedeklenir.
+    
+    Dönen her sonuçta: title, url, snippet ve source (tavily veya duckduckgo).
     """
     if not query or not query.strip():
         return []
-    
-    # Güvenlik: Sorgu uzunluğunu kontrol et
+
+    # Sorgu uzunluğu sınırlaması (örnek 200 karakter)
     if len(query) > 200:
+        logger.warning("Sorgu uzunluğu sınırı aşıldı.")
         return []
-    
-    out: List[Dict[str, str]] = []
+
+    # 1. Tavily API çağrısı
+    tavily_results = _search_tavily(query, max_results, region, safesearch)
+    if tavily_results:                      # başarılı ve boş olmayan sonuç
+        return tavily_results
+
+    # 2. Tavily başarısızsa DuckDuckGo’ya geç
+    ddgs_results = _search_duckduckgo(query, max_results, region, safesearch)
+    return ddgs_results
+
+
+def _search_tavily(
+    query: str, max_results: int, region: str, safesearch: str
+) -> List[Dict[str, str]]:
+    """Tavily araması. Başarısızsa boş liste döner."""
+    try:
+        import requests
+
+        url = "https://api.tavily.com/search"
+        payload = {
+            "search_query": query,
+            "max_results": max_results,
+            "region": region,
+            "safesearch": safesearch
+        }
+        headers = {
+            "accept": "application/json",
+            "x-api-key": TAVILY_API_KEY
+        }
+
+        resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        resp.raise_for_status()
+        data = resp.json()
+
+        out: List[Dict[str, str]] = []
+        for r in data.get("results", []):
+            out.append({
+                "title": r.get("title", ""),
+                "url": r.get("url", ""),
+                "snippet": r.get("content", "")[:200],
+                "source": "tavily"
+            })
+        return out
+
+    except Exception as e:
+        logger.warning(f"Tavily API hatası: {e}")
+        return []   # Yedekleme için boş döndür
+
+
+def _search_duckduckgo(
+    query: str, max_results: int, region: str, safesearch: str
+) -> List[Dict[str, str]]:
+    """DuckDuckGo araması (kütüphane ile)."""
     try:
         from duckduckgo_search import DDGS
+
+        out: List[Dict[str, str]] = []
         with DDGS() as ddgs:
             for r in ddgs.text(query, max_results=max_results, region=region, safesearch=safesearch):
                 out.append({
@@ -108,23 +203,29 @@ def web_search(query: str, max_results: int = 5, region: str = "tr-tr", safesear
                     "snippet": r.get("body", ""),
                     "source": "duckduckgo"
                 })
+        return out
     except Exception as e:
-        logger.error(f"Web search error: {e}")
+        logger.error(f"DuckDuckGo araması hatası: {e}")
         return []
-    
-    return out
 
+
+# ------------------------------------------------------------------
+# HTTP GET – Tek Parça
+# ------------------------------------------------------------------
 @mcp.tool()
-def http_get(url: str, max_chars: int = 18000, timeout: float = 15.0, user_agent: str = "MCP-WebTools/1.0") -> Dict[str, str]:
-    """URL'den içerik çeker ve sadeleştirilmiş metin döner.
-    Çok büyük sayfaları keser (max_chars)."""
+def http_get(
+    url: str,
+    max_chars: int = 18000,
+    timeout: float = 15.0,
+    user_agent: str = "MCP-WebTools/1.0"
+) -> Dict[str, str]:
+    """URL'den içerik çeker ve sadeleştirilmiş metin döner."""
     
-    # Güvenlik: URL geçerliliği kontrolü
     if not _validate_url(url):
         return {"error": "Geçersiz URL", "status": "error"}
     
-    # Güvenlik: URL domain kontrolü (örnek)
     try:
+        from urllib.parse import urlparse
         parsed_url = urlparse(url)
         if not _validate_domain(parsed_url.netloc):
             return {"error": "İzin verilmeyen domain", "status": "error"}
@@ -134,23 +235,19 @@ def http_get(url: str, max_chars: int = 18000, timeout: float = 15.0, user_agent
     headers = {"User-Agent": user_agent}
     
     try:
-        # Güvenlik: Timeout ve max_chars kontrolü
         if timeout > 30.0:
             timeout = 30.0
             
         resp = requests.get(url, headers=headers, timeout=timeout)
         resp.raise_for_status()
         
-        # Güvenlik: İçerik uzunluğu kontrolü
-        content_length = len(resp.content)
-        if content_length > 5000000:  # 5MB
+        if len(resp.content) > 5_000_000:   # 5 MB
             return {"error": "İçerik çok büyük", "status": "error"}
-            
-        # Basit ayrıştırma
+        
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(resp.text, "html.parser")
         title = _clean_text(soup.title.text) if soup.title else ""
         
-        # script/style kaldır
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
             
@@ -159,11 +256,7 @@ def http_get(url: str, max_chars: int = 18000, timeout: float = 15.0, user_agent
         if len(text) > max_chars:
             text = text[:max_chars] + " …(truncated)"
             
-        return {
-            "url": url,
-            "title": title,
-            "text": text
-        }
+        return {"url": url, "title": title, "text": text}
         
     except requests.exceptions.RequestException as e:
         return {"error": f"HTTP hatası: {str(e)}", "status": "error"}
@@ -171,46 +264,48 @@ def http_get(url: str, max_chars: int = 18000, timeout: float = 15.0, user_agent
         logger.error(f"http_get error: {e}")
         return {"error": "İçerik işlenirken hata oluştu", "status": "error"}
 
+
+# ------------------------------------------------------------------
+# HTTP GET – Parçalar
+# ------------------------------------------------------------------
 @mcp.tool()
-def http_get_chunks(url: str, chunk_size: int = 3000, overlap: int = 200, timeout: float = 12.0) -> Dict[str, List[str]]:
+def http_get_chunks(
+    url: str,
+    chunk_size: int = 3000,
+    overlap: int = 200,
+    timeout: float = 12.0
+) -> Dict[str, List[str]]:
     """Uzun HTML içeriklerini parçalayarak döner (chunk'lara ayırır)."""
     
-    # Güvenlik: URL geçerliliği kontrolü
     if not _validate_url(url):
         return {"error": "Geçersiz URL", "status": "error"}
     
     try:
         headers = {"User-Agent": "MCP-WebTools/1.0"}
-        
-        # Güvenlik: Timeout kontrolü
         if timeout > 30.0:
             timeout = 30.0
             
         resp = requests.get(url, headers=headers, timeout=timeout)
         resp.raise_for_status()
         
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(resp.text, "html.parser")
         for tag in soup(["script", "style", "noscript"]):
             tag.decompose()
             
         text = _clean_text(soup.get_text(" "))
         
-        # Güvenlik: Çok büyük metin kontrolü
-        if len(text) > 100000:  # 100KB
+        if len(text) > 100_000:   # 100 KB
             return {"error": "Metin çok büyük", "status": "error"}
-            
+        
         chunks = []
         start = 0
         while start < len(text):
             end = start + chunk_size
             chunks.append(text[start:end])
-            start = end - overlap  # biraz üst üste bindirme
+            start = end - overlap
             
-        return {
-            "url": url,
-            "chunks": chunks,
-            "chunk_count": len(chunks)
-        }
+        return {"url": url, "chunks": chunks, "chunk_count": len(chunks)}
         
     except Exception as e:
         logger.error(f"http_get_chunks error: {e}")
