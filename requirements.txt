@@ -1,11 +1,13 @@
 requests
 beautifulsoup4
-duckduckgo-search
+duckduckgo_search
 reportlab
 pytesseract
 opencv-python
+Pillow
 openai
-google.generativeai
+google-generativeai
 transformers
+sqlite3
 docker
 kubernetes
