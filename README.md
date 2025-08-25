@@ -1,9 +1,12 @@
 # *-*-*-*-* EMREY MCP SERVER *-*-*-*-*
 ------------------------------------
-
+python3 >= 3.10
+------------------------------------
 
 ###   First, install the necessary packages.
 - pip install -r requirements.txt
+or
+- pip3 install -r requirements.txt
 
 ###   Then, start the server and check for any errors. If there are any errors or missing packages, check them.
 - python mcp-server.py
