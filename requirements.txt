@@ -8,6 +8,5 @@ Pillow
 openai
 google-generativeai
 transformers
-sqlite3
 docker
 kubernetes
