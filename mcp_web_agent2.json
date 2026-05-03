@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "web-agent": {
+      "command": "C:\\Users\\EmreYILDIZ\\mcp-server-2026\\venv\\Scripts\\python.exe",
+      "args": [
+        "C:\\Users\\EmreYILDIZ\\mcp-server-2026\\pp_mcp_server.py"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "api-key-here",
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}
